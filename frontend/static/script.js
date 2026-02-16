@@ -206,14 +206,19 @@ function clearCanvas() {
 // Chat
 function handleChat(e) {
     if (e.key === 'Enter') {
-        const input = document.getElementById('chat-input');
-        const msg = input.value;
-        if (!msg) return;
-
-        socket.emit('chat_message', { roomId, message: msg });
-        input.value = '';
+        submitChat();
     }
 }
+
+function submitChat() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value;
+    if (!msg) return;
+
+    socket.emit('chat_message', { roomId, message: msg });
+    input.value = '';
+}
+
 
 function addChatMessage(msg, className = 'message') {
     const div = document.createElement('div');
