@@ -38,27 +38,16 @@ const WORDS = ["Triangle", "Square", "Circle", "Rectangle", "Star", "Heart", "Di
 // Game State Storage
 const rooms = {};
 
+// Helper to generate unique room IDs
+function generateRoomId() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // Join Room
-    socket.on('join_room', ({ username, roomId }) => {
-        if (!roomId) roomId = "default"; // Fallback
-
-        if (!rooms[roomId]) {
-            rooms[roomId] = {
-                id: roomId,
-                players: [],
-                state: 'LOBBY',
-                currentRound: 0,
-                maxRounds: 3,
-                drawerIndex: 0,
-                secretWord: "",
-                timer: 0,
-                timerInterval: null
-            };
-        }
-
+    // New function to handle joining a room
+    function joinRoom(socket, roomId, username) {
         const room = rooms[roomId];
 
         if (room.players.length >= MAX_PLAYERS) {
@@ -84,8 +73,37 @@ io.on('connection', (socket) => {
         socket.join(roomId);
 
         // Notify
+        socket.emit('room_joined', { roomId, username: finalUsername }); // Ack to client
         io.to(roomId).emit('system_message', `${player.username} joined.`);
         io.to(roomId).emit('game_state', getPublicState(room));
+    }
+
+    // Create Room
+    socket.on('create_room', ({ username }) => {
+        const roomId = generateRoomId();
+
+        rooms[roomId] = {
+            id: roomId,
+            players: [],
+            state: 'LOBBY',
+            currentRound: 0,
+            maxRounds: 3,
+            drawerIndex: 0,
+            secretWord: "",
+            timer: 0,
+            timerInterval: null
+        };
+
+        joinRoom(socket, roomId, username);
+    });
+
+    // Join Room
+    socket.on('join_room', ({ username, roomId }) => {
+        if (!rooms[roomId]) {
+            socket.emit('error', 'Room not found! Please check the Room ID.');
+            return;
+        }
+        joinRoom(socket, roomId, username);
     });
 
     // Start Game
@@ -255,6 +273,10 @@ function getPublicState(room) {
             hasGuessed: p.hasGuessed
         }))
     };
+}
+
+function generateRoomId() {
+    return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
 server.listen(PORT, () => {

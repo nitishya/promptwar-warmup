@@ -21,31 +21,45 @@ function createRoom() {
     username = document.getElementById('username').value;
     if (!username) return alert("Please enter a username");
 
-    roomId = Math.random().toString(36).substring(7); // Generate ID locally for simplicity
-    joinRoomLogic(roomId);
+    socket.emit('create_room', { username });
 }
 
 function joinRoom() {
     username = document.getElementById('username').value;
-    const roomInput = document.getElementById('room-input').value;
+    const roomInput = document.getElementById('room-input').value.toUpperCase(); // Normalize
     if (!username || !roomInput) return alert("Please enter username and room ID");
 
-    roomId = roomInput;
-    joinRoomLogic(roomId);
-}
-
-function joinRoomLogic(id) {
-    socket.emit('join_room', { username, roomId: id });
+    socket.emit('join_room', { username, roomId: roomInput });
 }
 
 // Socket Event Listeners
 
-socket.on('game_state', (state) => {
-    // Switch view if in lobby
+socket.on('room_joined', (data) => {
+    roomId = data.roomId;
+    username = data.username;
+
+    // Switch view
     if (!views.lobby.classList.contains('hidden')) {
         views.lobby.classList.add('hidden');
         views.game.classList.remove('hidden');
-        document.getElementById('display-room-id').innerText = roomId;
+
+        // Add Copy Button
+        const roomDisplay = document.getElementById('display-room-id');
+        roomDisplay.innerText = roomId;
+        roomDisplay.style.cursor = 'pointer';
+        roomDisplay.title = "Click to Copy";
+        roomDisplay.onclick = () => {
+            navigator.clipboard.writeText(roomId).then(() => alert("Room ID copied!"));
+        };
+    }
+});
+
+socket.on('game_state', (state) => {
+    // If we joined via room_joined, view is already switched.
+    // Ensure we have correct state.
+    if (!views.lobby.classList.contains('hidden') && roomId) {
+        views.lobby.classList.add('hidden');
+        views.game.classList.remove('hidden');
     }
     updateGameState(state);
 });
