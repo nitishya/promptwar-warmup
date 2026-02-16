@@ -10,7 +10,29 @@ const views = {
     game: document.getElementById('game-view')
 };
 
+// Check for Room ID in URL
+window.onload = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam) {
+        document.getElementById('room-input').value = roomParam;
+    }
+
+    // Add Enter Key Listeners
+    document.getElementById('username').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            if (document.getElementById('room-input').value) joinRoom();
+            else createRoom();
+        }
+    });
+
+    document.getElementById('room-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') joinRoom();
+    });
+};
+
 const canvas = document.getElementById('drawing-board');
+
 const ctx = canvas.getContext('2d');
 let drawing = false;
 let currentColor = '#000';
@@ -40,6 +62,10 @@ socket.on('room_joined', (data) => {
 
     // Switch view
     if (!views.lobby.classList.contains('hidden')) {
+        // Update URL
+        const newUrl = `${window.location.pathname}?room=${roomId}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+
         views.lobby.classList.add('hidden');
         views.game.classList.remove('hidden');
 
