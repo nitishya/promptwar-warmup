@@ -100,6 +100,7 @@ io.on('connection', (socket) => {
         socket.emit('room_joined', { roomId, username: finalUsername }); // Ack to client
         io.to(roomId).emit('system_message', `${player.username} joined.`);
         io.to(roomId).emit('game_state', getPublicState(room));
+        saveRooms();
     }
 
     // Create Room
