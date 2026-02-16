@@ -30,7 +30,7 @@ app.get('/api/rooms', (req, res) => {
 });
 
 // Constants
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 5;
 const ROUND_TIME = 60; // seconds
 const WORDS = ["cat", "dog", "house", "tree", "car", "sun", "book", "computer", "phone", "pizza", "robot", "alien", "future", "space", "galaxy"];
