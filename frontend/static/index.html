@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw & Guess Evolution</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Login / Lobby Section -->
+        <div id="lobby-view" class="container">
+            <h1>Draw & Guess Evolution</h1>
+            <div class="card">
+                <h2>Join a Game</h2>
+                <input type="text" id="username" placeholder="Enter your nickname" />
+                <div class="actions">
+                    <button id="create-btn" onclick="createRoom()">Create New Room</button>
+                    <div class="divider">OR</div>
+                    <div class="join-row">
+                        <input type="text" id="room-input" placeholder="Room ID" />
+                        <button id="join-btn" onclick="joinRoom()">Join Room</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Room Section -->
+        <div id="game-view" class="container hidden">
+            <header>
+                <div class="room-info">Room: <span id="display-room-id"></span></div>
+                <div class="timer">Time: <span id="timer">00</span></div>
+                <div class="round-info">Round: <span id="round">1</span></div>
+            </header>
+
+            <main class="game-layout">
+                <!-- Sidebar: Players & Score -->
+                <aside class="sidebar">
+                    <h3>Players</h3>
+                    <ul id="player-list">
+                        <!-- Player items injected here -->
+                    </ul>
+                </aside>
+
+                <!-- Canvas Area -->
+                <section class="canvas-container">
+                    <div id="word-display" class="word-overlay hidden">Word: <span id="secret-word">???</span></div>
+                    <canvas id="drawing-board" width="800" height="600"></canvas>
+
+                    <div id="toolbar" class="toolbar hidden">
+                        <div class="colors">
+                            <div class="color-swatch" style="background: #000;" onclick="setColor('#000')"></div>
+                            <div class="color-swatch" style="background: #f00;" onclick="setColor('#f00')"></div>
+                            <div class="color-swatch" style="background: #0f0;" onclick="setColor('#0f0')"></div>
+                            <div class="color-swatch" style="background: #00f;" onclick="setColor('#00f')"></div>
+                        </div>
+                        <button onclick="clearCanvas()">Clear</button>
+                    </div>
+                </section>
+
+                <!-- Chat & Guess Area -->
+                <aside class="chat-area">
+                    <div id="chat-messages" class="messages"></div>
+                    <div class="input-area">
+                        <input type="text" id="chat-input" placeholder="Type your guess here..."
+                            onkeypress="handleChat(event)" />
+                    </div>
+                </aside>
+            </main>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
