@@ -33,7 +33,7 @@ app.get('/api/rooms', (req, res) => {
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 5;
 const ROUND_TIME = 60; // seconds
-const WORDS = ["cat", "dog", "house", "tree", "car", "sun", "book", "computer", "phone", "pizza", "robot", "alien", "future", "space", "galaxy"];
+const WORDS = ["Triangle", "Square", "Circle", "Rectangle", "Star", "Heart", "Diamond", "Pentagon", "Hexagon", "Oval"];
 
 // Game State Storage
 const rooms = {};
@@ -94,6 +94,19 @@ io.on('connection', (socket) => {
         if (room && room.state === 'LOBBY') {
             startGame(room);
         }
+    });
+
+    // Word Selection
+    socket.on('word_selected', ({ roomId, word }) => {
+        const room = rooms[roomId];
+        if (!room || room.state !== 'WORD_SELECT') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || !player.isDrawer) return;
+
+        // Set word and start drawing
+        room.secretWord = word;
+        startDrawingPhase(room);
     });
 
     // Draw
@@ -171,16 +184,32 @@ function startGame(room) {
 function startRound(room) {
     if (room.state === 'GAME_OVER') return;
 
-    room.state = 'DRAWING';
+    room.state = 'WORD_SELECT';
     room.players.forEach(p => { p.isDrawer = false; p.hasGuessed = false; });
 
     if (room.drawerIndex >= room.players.length) room.drawerIndex = 0;
     const drawer = room.players[room.drawerIndex];
     drawer.isDrawer = true;
 
-    room.secretWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+    // Pick 3 random words
+    const options = [];
+    while (options.length < 3) {
+        const w = WORDS[Math.floor(Math.random() * WORDS.length)];
+        if (!options.includes(w)) options.push(w);
+    }
 
-    io.to(room.id).emit('system_message', `Round ${room.currentRound} started. Drawer: ${drawer.username}`);
+    io.to(room.id).emit('system_message', `Round ${room.currentRound} started. Drawer: ${drawer.username} is choosing a word...`);
+    io.to(room.id).emit('game_state', getPublicState(room));
+
+    // Send options ONLY to drawer
+    io.to(drawer.id).emit('word_select_options', options);
+}
+
+function startDrawingPhase(room) {
+    room.state = 'DRAWING';
+    const drawer = room.players[room.drawerIndex];
+
+    io.to(room.id).emit('system_message', `Drawer has chosen a word! Guess the shape!`);
     io.to(room.id).emit('game_state', getPublicState(room));
     io.to(drawer.id).emit('secret_word', room.secretWord);
 

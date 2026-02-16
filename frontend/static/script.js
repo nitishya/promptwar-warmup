@@ -74,6 +74,10 @@ socket.on('secret_word', (word) => {
     document.getElementById('secret-word').innerText = word;
 });
 
+socket.on('word_select_options', (options) => {
+    showWordSelectionModal(options);
+});
+
 socket.on('round_end', (data) => {
     addChatMessage(`Round Over! Word was: ${data.word}`, 'system-msg');
     document.getElementById('secret-word').innerText = "???"; // Reset
@@ -101,28 +105,29 @@ function updateGameState(state) {
     });
 
     document.getElementById('round').innerText = state.currentRound;
-
-    // Auto-start button? (Only show for first player maybe, or simple check)
-    // For now, if state is LOBBY and players > 1, maybe show a start button?
-    // Let's reuse the "toolbar" area or chat for a start command if needed, 
-    // or just assume players manually trigger it.
-    // Ideally we add a "Start Game" button in the lobby but we are already in game view.
-    // Let's add a temporary Start button in sidebar if Lobby.
 }
 
-// Add a Start Game button to sidebar dynamically if needed, 
-// or just exposing it via console for this speedrun: 
-// But let's act "Agentic" and make it usable.
-// Simple fix: If lobby and >= 2 players, show start button in chat area?
-// Actually, let's just add it to the header or sidebar.
 const startBtn = document.createElement('button');
-startBtn.innerText = "Start Game";
+startBtn.id = 'start-game-btn';
+startBtn.innerText = "START GAME";
+startBtn.style.marginTop = "20px";
+startBtn.style.backgroundColor = "#22c55e"; // Green
 startBtn.onclick = () => socket.emit('start_game', { roomId });
 // We can append this to header if not started.
+if (!document.getElementById('start-game-btn')) {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.appendChild(startBtn);
+}
+
 
 function updateControls() {
     const toolbar = document.getElementById('toolbar');
     const wordDisplay = document.getElementById('word-display');
+
+    // Only show controls if drawer AND state is DRAWING (not WORD_SELECT)
+    // For simplicity, backend state handles logic, but UI needs to hide until drawing starts
+    // We can rely on separate event or just check if secret-word is populated / timer running
+    // But basic "isDrawer" check is fine, toolbar can be visible.
 
     if (isDrawer) {
         toolbar.classList.remove('hidden');
@@ -162,17 +167,10 @@ function drawOnCanvas(x, y, color, isStart) {
     if (isStart) {
         ctx.beginPath();
         ctx.moveTo(x, y);
-        [lastX, lastY] = [x, y]; // Update locally for continuity
-        // Note: For remote drawing this [lastX, lastY] isn't perfectly synced if multiple strokes come in fast,
-        // but for <2min prototype it's fine.
+        [lastX, lastY] = [x, y];
     } else {
         ctx.beginPath();
-        ctx.moveTo(lastX, lastY); // This relies on global state, might glitch for spectators if multiple lines.
-        // Better: Pass prevX, prevY in packet? 
-        // For simplicity: We just drawLineTo(x,y). 
-        // Real implementation: socket.emit('draw', { fromX, fromY, toX, toY })
-
-        // Let's trust the "moveTo" from start.
+        ctx.moveTo(lastX, lastY);
         ctx.lineTo(x, y);
         ctx.stroke();
         [lastX, lastY] = [x, y];
@@ -198,9 +196,6 @@ function handleChat(e) {
         const msg = input.value;
         if (!msg) return;
 
-        // If game hasn't started, maybe this button starts it? 
-        // No, let's stick to chat.
-
         socket.emit('chat_message', { roomId, message: msg });
         input.value = '';
     }
@@ -208,6 +203,10 @@ function handleChat(e) {
 
 function addChatMessage(msg, className = 'message') {
     const div = document.createElement('div');
+    if (className === 'system-msg') {
+        div.style.color = '#64748b';
+        div.style.fontStyle = 'italic';
+    }
     div.className = className;
     div.innerText = msg;
     const container = document.getElementById('chat-messages');
@@ -215,20 +214,52 @@ function addChatMessage(msg, className = 'message') {
     container.scrollTop = container.scrollHeight;
 }
 
-// Quick UI Tweaks
-// Add Start Button to Lobby UI for clarity
-const lobbyActions = document.querySelector('#lobby-view .actions');
-// No, the lobby view disappears on join. 
-// The Start Button needs to be in the GAME view but only if state is LOBBY.
-// We can handle this in updateGameState but let's keep it simple.
-// The sidebar is a good place.
-const sidebar = document.querySelector('.sidebar');
-if (!document.getElementById('start-game-btn')) {
-    const btn = document.createElement('button');
-    btn.id = 'start-game-btn';
-    btn.innerText = "START GAME";
-    btn.style.marginTop = "20px";
-    btn.style.backgroundColor = "#22c55e"; // Green
-    btn.onclick = () => socket.emit('start_game', { roomId });
-    sidebar.appendChild(btn);
+// Word Selection Modal Logic
+function showWordSelectionModal(options) {
+    // Create modal DOM dynamically
+    const modal = document.createElement('div');
+    modal.id = 'word-select-modal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.background = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+
+    const title = document.createElement('h2');
+    title.innerText = "Choose a Word to Draw!";
+    title.style.color = 'white';
+    title.style.marginBottom = '20px';
+    modal.appendChild(title);
+
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.gap = '15px';
+
+    options.forEach(word => {
+        const btn = document.createElement('button');
+        btn.innerText = word;
+        btn.style.padding = '15px 30px';
+        btn.style.fontSize = '1.2rem';
+        btn.style.background = '#6366f1';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '8px';
+        btn.style.cursor = 'pointer';
+
+        btn.onclick = () => {
+            socket.emit('word_selected', { roomId, word });
+            document.body.removeChild(modal);
+        };
+
+        container.appendChild(btn);
+    });
+
+    modal.appendChild(container);
+    document.body.appendChild(modal);
 }
