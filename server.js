@@ -66,9 +66,16 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Handle Duplicate Usernames
+        let finalUsername = username || `Player ${socket.id.substr(0, 4)}`;
+        let count = 1;
+        while (room.players.some(p => p.username === finalUsername)) {
+            finalUsername = `${username} (${count++})`;
+        }
+
         const player = {
             id: socket.id,
-            username: username || `Player ${socket.id.substr(0, 4)}`,
+            username: finalUsername,
             score: 0,
             isDrawer: false,
             hasGuessed: false
@@ -102,9 +109,13 @@ io.on('connection', (socket) => {
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
 
+
+        // Chat Sanitation (Basic)
+        const cleanMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;").substring(0, 200);
+
         // Guess Logic
         if (room.state === 'DRAWING' && !player.isDrawer && !player.hasGuessed) {
-            if (message.toLowerCase().trim() === room.secretWord.toLowerCase().trim()) {
+            if (cleanMessage.toLowerCase().trim() === room.secretWord.toLowerCase().trim()) {
                 player.hasGuessed = true;
                 player.score += 10;
                 const drawer = room.players[room.drawerIndex];
@@ -122,7 +133,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        io.to(roomId).emit('chat_message', { username: player.username, message });
+        io.to(roomId).emit('chat_message', { username: player.username, message: cleanMessage });
     });
 
     socket.on('disconnect', () => {
@@ -136,9 +147,12 @@ io.on('connection', (socket) => {
                 io.to(roomId).emit('game_state', getPublicState(room));
 
                 if (room.players.length === 0) {
+                    console.log(`Room ${roomId} is empty. Cleaning up.`);
                     clearInterval(room.timerInterval);
                     delete rooms[roomId];
                 } else if (room.state === 'DRAWING' && p.isDrawer) {
+                    // Drawer Disconnect Logic
+                    io.to(roomId).emit('system_message', `Drawer ${p.username} disconnected! Ending round.`);
                     endRound(room);
                 }
                 break;
