@@ -35,8 +35,32 @@ const MAX_PLAYERS = 5;
 const ROUND_TIME = 60; // seconds
 const WORDS = ["Triangle", "Square", "Circle", "Rectangle", "Star", "Heart", "Diamond", "Pentagon", "Hexagon", "Oval"];
 
+const fs = require('fs');
+const os = require('os');
+
 // Game State Storage
-const rooms = {};
+let rooms = {};
+// Use /tmp for Cloud Run (writable), local file otherwise
+const DATA_FILE = process.env.K_SERVICE ? '/tmp/rooms.json' : 'rooms.json';
+
+// Load rooms from file if exists
+if (fs.existsSync(DATA_FILE)) {
+    try {
+        const data = fs.readFileSync(DATA_FILE, 'utf8');
+        rooms = JSON.parse(data);
+        console.log(`Loaded ${Object.keys(rooms).length} active rooms from storage.`);
+    } catch (e) {
+        console.error("Failed to load rooms:", e);
+    }
+}
+
+function saveRooms() {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(rooms, null, 2));
+    } catch (e) {
+        console.error("Failed to save rooms:", e);
+    }
+}
 
 // Helper to generate unique room IDs
 function generateRoomId() {
@@ -181,6 +205,7 @@ io.on('connection', (socket) => {
                     console.log(`Room ${roomId} is empty. Cleaning up.`);
                     clearInterval(room.timerInterval);
                     delete rooms[roomId];
+                    saveRooms();
                 } else if (room.state === 'DRAWING' && p.isDrawer) {
                     // Drawer Disconnect Logic
                     io.to(roomId).emit('system_message', `Drawer ${p.username} disconnected! Ending round.`);
